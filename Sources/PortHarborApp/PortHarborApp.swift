@@ -387,10 +387,13 @@ private struct ServicesPage: View {
         HSplitView {
             serviceList
                 .frame(minWidth: 440)
+                .frame(maxHeight: .infinity, alignment: .top)
 
             ServiceInspector(service: model.selectedService, model: model)
                 .frame(minWidth: 300, idealWidth: 340, maxWidth: 420)
+                .frame(maxHeight: .infinity)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .navigationTitle("Services")
         .searchable(
             text: $model.searchText,
