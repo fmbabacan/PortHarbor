@@ -1,0 +1,18 @@
+cask "portharbor" do
+  version "@VERSION@"
+  sha256 arm: "@ARM_SHA@", intel: "@INTEL_SHA@"
+
+  on_arm do
+    url "https://github.com/fmbabacan/PortHarbor/releases/download/v#{version}/PortHarbor-#{version}-arm64.zip"
+  end
+
+  on_intel do
+    url "https://github.com/fmbabacan/PortHarbor/releases/download/v#{version}/PortHarbor-#{version}-x86_64.zip"
+  end
+
+  name "PortHarbor"
+  desc "Native macOS service radar"
+  homepage "https://github.com/fmbabacan/PortHarbor"
+  depends_on macos: ">= :sequoia"
+  app "PortHarbor.app"
+end
