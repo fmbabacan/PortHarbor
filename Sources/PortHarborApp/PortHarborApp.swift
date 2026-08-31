@@ -397,14 +397,21 @@ private struct ServicesPage: View {
     @Bindable var model: PortHarborModel
 
     var body: some View {
-        HSplitView {
-            serviceList
-                .frame(minWidth: 440)
-                .frame(maxHeight: .infinity, alignment: .top)
+        GeometryReader { geometry in
+            HSplitView {
+                serviceList
+                    .frame(minWidth: 440)
+                    .frame(height: geometry.size.height, alignment: .top)
 
-            ServiceInspector(service: model.selectedService, model: model)
-                .frame(minWidth: 300, idealWidth: 340, maxWidth: 420)
-                .frame(maxHeight: .infinity)
+                ServiceInspector(service: model.selectedService, model: model)
+                    .frame(minWidth: 300, idealWidth: 340, maxWidth: 420)
+                    .frame(height: geometry.size.height)
+            }
+            .frame(
+                width: geometry.size.width,
+                height: geometry.size.height,
+                alignment: .top
+            )
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .navigationTitle("Services")
