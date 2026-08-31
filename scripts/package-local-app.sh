@@ -5,6 +5,8 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 BUILD_DIR="$ROOT/.build"
 VERSION=$(tr -d '[:space:]' < "$ROOT/VERSION")
 BUILD_NUMBER=${BUILD_NUMBER:-1}
+SPARKLE_PUBLIC_KEY=${SPARKLE_PUBLIC_KEY:-"YL33FrdCjDXEfkZXNKVFzBf+lqjKcCwFRKB3KHecEZA="}
+SPARKLE_FEED_URL=${SPARKLE_FEED_URL:-"https://raw.githubusercontent.com/fmbabacan/PortHarbor/main/appcast.xml"}
 APP_DIR="$BUILD_DIR/PortHarbor.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
@@ -51,6 +53,10 @@ chmod 755 "$MACOS_DIR/PortHarbor"
 /usr/libexec/PlistBuddy -c "Add :LSMinimumSystemVersion string 15.0" "$CONTENTS_DIR/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :NSHighResolutionCapable bool true" "$CONTENTS_DIR/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :NSSupportsAutomaticGraphicsSwitching bool true" "$CONTENTS_DIR/Info.plist"
+/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $SPARKLE_PUBLIC_KEY" "$CONTENTS_DIR/Info.plist"
+/usr/libexec/PlistBuddy -c "Add :SUFeedURL string $SPARKLE_FEED_URL" "$CONTENTS_DIR/Info.plist"
+
+cp "$ROOT/Sources/PortHarborApp/Resources/Localizable.xcstrings" "$RESOURCES_DIR/Localizable.xcstrings"
 
 /usr/bin/plutil -convert binary1 "$CONTENTS_DIR/Info.plist"
 /usr/bin/xattr -cr "$APP_DIR"

@@ -6,6 +6,10 @@ import PortHarborSafety
 import PortHarborTimeline
 import SwiftUI
 
+private func localized(_ key: String.LocalizationValue) -> String {
+    String(localized: key, bundle: .module)
+}
+
 @main
 struct PortHarborApp: App {
     @State private var model = PortHarborModel()
@@ -78,24 +82,24 @@ final class PortHarborModel {
 
         var title: String {
             switch self {
-            case .graceful: "Stop this service?"
-            case .force: "Force stop this service?"
+            case .graceful: localized("Stop this service?")
+            case .force: localized("Force stop this service?")
             }
         }
 
         var actionTitle: String {
             switch self {
-            case .graceful: "Stop"
-            case .force: "Force Stop"
+            case .graceful: localized("Stop")
+            case .force: localized("Force Stop")
             }
         }
 
         var message: String {
             switch self {
             case let .graceful(plan, name):
-                "PortHarbor will send SIGTERM to \(name). \(plan.explanation) The process identity will be checked again immediately before the signal is sent."
+                localized("PortHarbor will send SIGTERM to \(name). \(plan.explanation) The process identity will be checked again immediately before the signal is sent.")
             case let .force(plan, name):
-                "The service did not exit after SIGTERM. PortHarbor will send SIGKILL to \(name) only after revalidating its process identity. \(plan.explanation)"
+                localized("The service did not exit after SIGTERM. PortHarbor will send SIGKILL to \(name) only after revalidating its process identity. \(plan.explanation)")
             }
         }
     }
@@ -215,7 +219,7 @@ final class PortHarborModel {
             stopPrompt = .graceful(plan, displayName(for: service))
         } catch {
             stopNotice = StopNotice(
-                title: "Service cannot be stopped",
+                title: localized("Service cannot be stopped"),
                 message: stopErrorMessage(error)
             )
         }
@@ -268,16 +272,16 @@ final class PortHarborModel {
             try await stopExecutor.execute(plan, authorization: authorization)
             _ = await engine.scan()
             stopNotice = StopNotice(
-                title: "Service stopped",
-                message: "\(serviceName) exited successfully."
+                title: localized("Service stopped"),
+                message: localized("\(serviceName) exited successfully.")
             )
         } catch StopExecutionError.targetDidNotExit where authorization == .graceful {
             guard let service = snapshot.services.first(where: {
                 $0.id == plan.serviceID
             }) else {
                 stopNotice = StopNotice(
-                    title: "Service is still running",
-                    message: "Refresh discovery before trying again."
+                    title: localized("Service is still running"),
+                    message: localized("Refresh discovery before trying again.")
                 )
                 return
             }
@@ -290,14 +294,14 @@ final class PortHarborModel {
                 stopPrompt = .force(forcePlan, serviceName)
             } catch {
                 stopNotice = StopNotice(
-                    title: "Force stop unavailable",
+                    title: localized("Force stop unavailable"),
                     message: stopErrorMessage(error)
                 )
             }
         } catch {
             _ = await engine.scan()
             stopNotice = StopNotice(
-                title: "Service was not stopped",
+                title: localized("Service was not stopped"),
                 message: stopErrorMessage(error)
             )
         }
@@ -312,13 +316,13 @@ final class PortHarborModel {
         case let StopPlanningError.ineligible(reason):
             reason
         case StopExecutionError.processNoLongerExists:
-            "The process no longer exists. Discovery has been refreshed."
+            localized("The process no longer exists. Discovery has been refreshed.")
         case StopExecutionError.identityChanged:
-            "The process identity changed before the signal could be sent. No action was taken."
+            localized("The process identity changed before the signal could be sent. No action was taken.")
         case StopExecutionError.forceKillRequiresSeparateAuthorization:
-            "Force Stop requires its own explicit confirmation."
+            localized("Force Stop requires its own explicit confirmation.")
         case StopExecutionError.targetDidNotExit:
-            "The process did not exit within the verification period."
+            localized("The process did not exit within the verification period.")
         default:
             String(describing: error)
         }
@@ -821,9 +825,9 @@ private struct SettingsView: View {
 private extension ServiceCategory {
     var title: String {
         switch self {
-        case .development: "Development"
-        case .background: "Background Services"
-        case .system: "System"
+        case .development: localized("Development")
+        case .background: localized("Background Services")
+        case .system: localized("System")
         }
     }
 
@@ -837,7 +841,14 @@ private extension ServiceCategory {
 }
 
 private extension ServiceHealth {
-    var title: String { rawValue.capitalized }
+    var title: String {
+        switch self {
+        case .responding: localized("Responding")
+        case .starting: localized("Starting")
+        case .unreachable: localized("Unreachable")
+        case .unknown: localized("Unknown")
+        }
+    }
 
     var symbol: String {
         switch self {
@@ -861,9 +872,9 @@ private extension ServiceHealth {
 private extension NetworkExposure {
     var title: String {
         switch self {
-        case .onlyThisMac: "This Mac"
-        case .localNetwork: "Local Network"
-        case .allInterfaces: "All Interfaces"
+        case .onlyThisMac: localized("This Mac")
+        case .localNetwork: localized("Local Network")
+        case .allInterfaces: localized("All Interfaces")
         }
     }
 

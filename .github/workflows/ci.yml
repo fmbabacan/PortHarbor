@@ -11,7 +11,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Validate String Catalog
-        run: python3 -m json.tool Sources/PortHarborApp/Resources/Localizable.xcstrings > /dev/null
+        run: |
+          python3 -m json.tool Sources/PortHarborApp/Resources/Localizable.xcstrings > /dev/null
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          catalog = json.loads(
+              Path("Sources/PortHarborApp/Resources/Localizable.xcstrings").read_text()
+          )
+          strings = catalog.get("strings", {})
+          required = {
+              "Services",
+              "Timeline",
+              "Refresh",
+              "Open in Browser",
+              "Show in Finder",
+              "Safe Stop",
+              "Settings",
+              "Quit PortHarbor",
+          }
+          missing = sorted(required - strings.keys())
+          if not strings or missing:
+              raise SystemExit(
+                  "String Catalog is empty or missing required keys: "
+                  + ", ".join(missing)
+              )
+          PY
       - name: Unit and integration tests
         run: swift test
       - name: Release build
@@ -29,7 +55,12 @@ jobs:
             cat /tmp/portharbor-ci-lsof.err
           fi
       - name: Package smoke test
-        run: PACKAGE_ONLY=1 ARCH=$(uname -m) ./scripts/package-local-app.sh | tail -n 1 | xargs test -d
+        run: |
+          app=$(PACKAGE_ONLY=1 ARCH=$(uname -m) ./scripts/package-local-app.sh | tail -n 1)
+          test -d "$app"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$app/Contents/Info.plist")" = "YL33FrdCjDXEfkZXNKVFzBf+lqjKcCwFRKB3KHecEZA="
+          test "$(/usr/libexec/PlistBuddy -c 'Print :SUFeedURL' "$app/Contents/Info.plist")" = "https://raw.githubusercontent.com/fmbabacan/PortHarbor/main/appcast.xml"
+          test -s "$app/Contents/Resources/Localizable.xcstrings"
       - name: Distribution script syntax
         run: |
           sh -n scripts/package-local-app.sh
