@@ -17,7 +17,12 @@ jobs:
       - name: Release build
         run: swift build -c release
       - name: Runtime listener smoke test
-        run: PORTHARBOR_LIVE_TEST=1 swift test --scratch-path /tmp/PortHarbor-live --filter liveProviderDiscoversCurrentMacListeners
+        run: |
+          python3 -m http.server 0 --bind 127.0.0.1 > /tmp/portharbor-ci-listener.log 2>&1 &
+          listener_pid=$!
+          trap 'kill "$listener_pid" 2>/dev/null || true' EXIT
+          sleep 1
+          PORTHARBOR_LIVE_TEST=1 swift test --scratch-path /tmp/PortHarbor-live --filter liveProviderDiscoversCurrentMacListeners
       - name: Package smoke test
         run: PACKAGE_ONLY=1 ARCH=$(uname -m) ./scripts/package-local-app.sh | tail -n 1 | xargs test -d
       - name: Distribution script syntax
