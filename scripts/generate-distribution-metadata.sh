@@ -24,6 +24,15 @@ INTEL_SHA=$(/usr/bin/shasum -a 256 "$INTEL_ARCHIVE" | awk '{print $1}')
 ARM_LENGTH=$(stat -f %z "$ARM_ARCHIVE")
 INTEL_LENGTH=$(stat -f %z "$INTEL_ARCHIVE")
 
+# Escape values before inserting them into sed replacement expressions.
+# Sparkle EdDSA signatures are Base64 and may contain '/', '&', or '\\'.
+escape_sed_replacement() {
+    printf '%s' "$1" | sed 's/[\\&|]/\\&/g'
+}
+
+ARM_SIGNATURE_ESCAPED=$(escape_sed_replacement "$ARM_SIGNATURE")
+INTEL_SIGNATURE_ESCAPED=$(escape_sed_replacement "$INTEL_SIGNATURE")
+
 mkdir -p "$ROOT/Casks"
 
 sed -e "s/@VERSION@/$VERSION/g" \
@@ -31,11 +40,11 @@ sed -e "s/@VERSION@/$VERSION/g" \
     -e "s/@INTEL_SHA@/$INTEL_SHA/g" \
     "$ROOT/distribution/portharbor.rb.template" > "$ROOT/Casks/portharbor.rb"
 
-sed -e "s/@VERSION@/$VERSION/g" \
-    -e "s/@ARM_LENGTH@/$ARM_LENGTH/g" \
-    -e "s/@INTEL_LENGTH@/$INTEL_LENGTH/g" \
-    -e "s/@ARM_SIGNATURE@/$ARM_SIGNATURE/g" \
-    -e "s/@INTEL_SIGNATURE@/$INTEL_SIGNATURE/g" \
+sed -e "s|@VERSION@|$VERSION|g" \
+    -e "s|@ARM_LENGTH@|$ARM_LENGTH|g" \
+    -e "s|@INTEL_LENGTH@|$INTEL_LENGTH|g" \
+    -e "s|@ARM_SIGNATURE@|$ARM_SIGNATURE_ESCAPED|g" \
+    -e "s|@INTEL_SIGNATURE@|$INTEL_SIGNATURE_ESCAPED|g" \
     "$ROOT/distribution/appcast.xml.template" > "$ROOT/appcast.xml"
 
 printf '%s\n' "$ROOT/appcast.xml" "$ROOT/Casks/portharbor.rb"
