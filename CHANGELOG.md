@@ -4,6 +4,14 @@ All notable changes to PortHarbor are documented here. The format follows Keep a
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-09-01
+
+### Added
+
+- Added Sparkle 2.9.6 automatic update checks and a manual Check for Updates command.
+- Embedded and validated the Sparkle updater, autoupdate executable, and XPC services in packaged applications.
+- Added explicit release-secret validation before signing and notarization.
+
 ### Changed
 
 - Improved the initial service-list layout so every category uses the full window height before a service is selected.
@@ -23,5 +31,6 @@ All notable changes to PortHarbor are documented here. The format follows Keep a
 - Developer ID signed and Apple-notarized Apple Silicon and Intel builds.
 - Sparkle update metadata and Homebrew Cask distribution.
 
-[Unreleased]: https://github.com/fmbabacan/PortHarbor/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/fmbabacan/PortHarbor/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/fmbabacan/PortHarbor/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/fmbabacan/PortHarbor/releases/tag/v1.0.0
