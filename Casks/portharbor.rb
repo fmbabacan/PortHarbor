@@ -1,6 +1,6 @@
 cask "portharbor" do
-  version "1.0.0"
-  sha256 arm: "47159e12ed63c5df3b7490644074066431c5290d61dd22449afb2b0c3839ca21", intel: "d65d05ce42539e1b4230e16dc61c08053dc9edf3bc47d35b2835c36a539a7ecb"
+  version "1.0.2"
+  sha256 arm: "8bb88917ac2bdcd6eb23bf5b72731db36032c680b9c2c579e1ef9a3ff4bef432", intel: "b5bbaa4cba89df612b2e56441c6202bd4500d1ec25936e38f6759933da7f024e"
 
   on_arm do
     url "https://github.com/fmbabacan/PortHarbor/releases/download/v#{version}/PortHarbor-#{version}-arm64.zip"
