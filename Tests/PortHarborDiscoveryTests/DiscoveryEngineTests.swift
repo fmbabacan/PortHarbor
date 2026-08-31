@@ -72,6 +72,21 @@ private struct StubCommandRunner: CommandRunning {
     }
 }
 
+private struct FailingWorkingDirectoryRunner: CommandRunning {
+    let listenerOutput: String
+    let processOutput: String
+
+    func run(executable: URL, arguments: [String]) async throws -> String {
+        if executable.path == "/bin/ps" {
+            return processOutput
+        }
+        if arguments.contains("cwd") {
+            throw LsofProviderError.commandFailed(status: 1, message: "")
+        }
+        return listenerOutput
+    }
+}
+
 private struct StubProjectFileInspector: ProjectFileInspecting {
     let existingPaths: Set<String>
 
@@ -279,6 +294,30 @@ private struct StubProjectFileInspector: ProjectFileInspecting {
 
     #expect(directories[20] == "/Users/example/projects/harbor")
     #expect(directories[30] == "/")
+}
+
+@Test func providerContinuesWhenWorkingDirectoryEnrichmentFails() async throws {
+    let provider = LsofListenerProvider(
+        runner: FailingWorkingDirectoryRunner(
+            listenerOutput: """
+            p20
+            cpython3
+            f5
+            tIPv4
+            n127.0.0.1:8080
+            """,
+            processOutput: """
+             20 1 20 Sun Aug 30 17:00:01 2026 /usr/bin/python3
+            """
+        )
+    )
+
+    let snapshot = try await provider.discover()
+
+    #expect(snapshot.isStale == false)
+    #expect(snapshot.services.count == 1)
+    #expect(snapshot.services[0].endpoint.port == 8080)
+    #expect(snapshot.services[0].project == nil)
 }
 
 @Test func projectResolverFindsNearestRootAndExplainsConfidence() {

@@ -155,15 +155,21 @@ public struct LsofListenerProvider<Runner: CommandRunning>: ServiceDiscovering {
             arguments: ["-axo", "pid=,ppid=,pgid=,lstart=,comm="]
         )
 
-        async let workingDirectoryOutput = runner.run(
-            executable: URL(fileURLWithPath: "/usr/sbin/lsof"),
-            arguments: ["-a", "-d", "cwd", "-Fpn"]
-        )
+        async let workingDirectoryOutput: String = {
+            do {
+                return try await runner.run(
+                    executable: URL(fileURLWithPath: "/usr/sbin/lsof"),
+                    arguments: ["-a", "-d", "cwd", "-Fpn"]
+                )
+            } catch {
+                return ""
+            }
+        }()
 
         let listeners = parser.parse(try await listenerOutput)
         let processTable = PSProcessParser().parse(try await processOutput)
         let workingDirectories = WorkingDirectoryParser().parse(
-            try await workingDirectoryOutput
+            await workingDirectoryOutput
         )
         let projectResolver = ProjectResolver()
 
