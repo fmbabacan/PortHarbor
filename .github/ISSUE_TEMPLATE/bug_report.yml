@@ -1,0 +1,55 @@
+name: Bug report
+description: Report reproducible incorrect behavior in PortHarbor
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping improve PortHarbor. Remove credentials, private paths, environment values, and sensitive process arguments before submitting.
+  - type: checkboxes
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues for the same problem.
+          required: true
+        - label: I am using the latest PortHarbor release.
+          required: true
+        - label: This is not an undisclosed security vulnerability.
+          required: true
+  - type: input
+    attributes:
+      label: PortHarbor version
+      placeholder: 1.0.0
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Mac architecture
+      options:
+        - Apple Silicon
+        - Intel
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: macOS version
+      placeholder: macOS 15.x
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: What happened?
+      description: Describe the observed and expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Reproduction steps
+      description: Provide the smallest reliable sequence that reproduces the problem.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Additional context
+      description: Add sanitized logs, screenshots, or other relevant details.

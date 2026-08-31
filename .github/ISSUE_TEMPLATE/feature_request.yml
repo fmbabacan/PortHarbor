@@ -1,0 +1,34 @@
+name: Feature request
+description: Propose a focused improvement to PortHarbor
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: checkboxes
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues for this proposal.
+          required: true
+        - label: This request describes one focused user problem.
+          required: true
+  - type: textarea
+    attributes:
+      label: Problem
+      description: What workflow is difficult today, and who is affected?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Proposed outcome
+      description: Describe the desired behavior without prescribing implementation details.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Alternatives considered
+      description: How do you handle this workflow today?
+  - type: textarea
+    attributes:
+      label: Safety and privacy considerations
+      description: Note implications for process control, stored data, permissions, or network access.
