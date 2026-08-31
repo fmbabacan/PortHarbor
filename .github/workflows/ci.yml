@@ -60,6 +60,8 @@ jobs:
           test -d "$app"
           test "$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$app/Contents/Info.plist")" = "YL33FrdCjDXEfkZXNKVFzBf+lqjKcCwFRKB3KHecEZA="
           test "$(/usr/libexec/PlistBuddy -c 'Print :SUFeedURL' "$app/Contents/Info.plist")" = "https://raw.githubusercontent.com/fmbabacan/PortHarbor/main/appcast.xml"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :SUEnableAutomaticChecks' "$app/Contents/Info.plist")" = "true"
+          test -d "$app/Contents/Frameworks/Sparkle.framework"
           test -s "$app/Contents/Resources/Localizable.xcstrings"
       - name: Distribution script syntax
         run: |

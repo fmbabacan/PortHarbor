@@ -12,6 +12,9 @@ let package = Package(
         .library(name: "PortHarborTimeline", targets: ["PortHarborTimeline"]),
         .executable(name: "PortHarbor", targets: ["PortHarborApp"])
     ],
+    dependencies: [
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.9.0")
+    ],
     targets: [
         .target(name: "PortHarborCore"),
         .target(
@@ -32,7 +35,8 @@ let package = Package(
                 "PortHarborCore",
                 "PortHarborDiscovery",
                 "PortHarborSafety",
-                "PortHarborTimeline"
+                "PortHarborTimeline",
+                .product(name: "Sparkle", package: "Sparkle")
             ],
             resources: [.process("Resources")]
         ),

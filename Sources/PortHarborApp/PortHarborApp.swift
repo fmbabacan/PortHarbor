@@ -4,6 +4,7 @@ import PortHarborCore
 import PortHarborDiscovery
 import PortHarborSafety
 import PortHarborTimeline
+import Sparkle
 import SwiftUI
 
 private func localized(_ key: String.LocalizationValue) -> String {
@@ -13,6 +14,11 @@ private func localized(_ key: String.LocalizationValue) -> String {
 @main
 struct PortHarborApp: App {
     @State private var model = PortHarborModel()
+    private let updaterController = SPUStandardUpdaterController(
+        startingUpdater: true,
+        updaterDelegate: nil,
+        userDriverDelegate: nil
+    )
 
     var body: some Scene {
         WindowGroup("PortHarbor") {
@@ -21,6 +27,13 @@ struct PortHarborApp: App {
         }
         .defaultSize(width: 1120, height: 720)
         .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") {
+                    updaterController.checkForUpdates(nil)
+                }
+                .disabled(!updaterController.updater.canCheckForUpdates)
+            }
+
             CommandGroup(after: .newItem) {
                 Button("Refresh Services") { model.refresh() }
                     .keyboardShortcut("r")

@@ -11,6 +11,7 @@ APP_DIR="$BUILD_DIR/PortHarbor.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
+FRAMEWORKS_DIR="$CONTENTS_DIR/Frameworks"
 ICONSET_DIR="$BUILD_DIR/PortHarbor.iconset"
 ICON_SOURCE="$ROOT/Sources/PortHarborApp/Resources/Assets.xcassets/AppIcon.appiconset"
 INSTALL_DIR=${INSTALL_DIR:-"$HOME/Applications"}
@@ -23,7 +24,7 @@ else
 fi
 
 rm -rf "$APP_DIR" "$ICONSET_DIR"
-mkdir -p "$MACOS_DIR" "$RESOURCES_DIR" "$ICONSET_DIR"
+mkdir -p "$MACOS_DIR" "$RESOURCES_DIR" "$FRAMEWORKS_DIR" "$ICONSET_DIR"
 
 cp "$ICON_SOURCE/icon_16x16.png" "$ICONSET_DIR/icon_16x16.png"
 cp "$ICON_SOURCE/icon_32x32.png" "$ICONSET_DIR/icon_16x16@2x.png"
@@ -40,6 +41,10 @@ cp "$ICON_SOURCE/icon_1024x1024.png" "$ICONSET_DIR/icon_512x512@2x.png"
 cp "$BUILD_DIR/release/PortHarbor" "$MACOS_DIR/PortHarbor"
 chmod 755 "$MACOS_DIR/PortHarbor"
 
+SPARKLE_FRAMEWORK=$(find "$BUILD_DIR" -path '*/release/Sparkle.framework' -type d -print -quit)
+: "${SPARKLE_FRAMEWORK:?Sparkle.framework was not produced by Swift Package Manager}"
+cp -R "$SPARKLE_FRAMEWORK" "$FRAMEWORKS_DIR/Sparkle.framework"
+
 /usr/libexec/PlistBuddy -c "Add :CFBundleDevelopmentRegion string en" "$CONTENTS_DIR/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string PortHarbor" "$CONTENTS_DIR/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :CFBundleExecutable string PortHarbor" "$CONTENTS_DIR/Info.plist"
@@ -55,6 +60,8 @@ chmod 755 "$MACOS_DIR/PortHarbor"
 /usr/libexec/PlistBuddy -c "Add :NSSupportsAutomaticGraphicsSwitching bool true" "$CONTENTS_DIR/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $SPARKLE_PUBLIC_KEY" "$CONTENTS_DIR/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :SUFeedURL string $SPARKLE_FEED_URL" "$CONTENTS_DIR/Info.plist"
+/usr/libexec/PlistBuddy -c "Add :SUEnableAutomaticChecks bool true" "$CONTENTS_DIR/Info.plist"
+/usr/libexec/PlistBuddy -c "Add :SUAutomaticallyUpdate bool false" "$CONTENTS_DIR/Info.plist"
 
 cp "$ROOT/Sources/PortHarborApp/Resources/Localizable.xcstrings" "$RESOURCES_DIR/Localizable.xcstrings"
 
