@@ -40,10 +40,15 @@ cp "$ICON_SOURCE/icon_1024x1024.png" "$ICONSET_DIR/icon_512x512@2x.png"
 
 cp "$BUILD_DIR/release/PortHarbor" "$MACOS_DIR/PortHarbor"
 chmod 755 "$MACOS_DIR/PortHarbor"
+/usr/bin/install_name_tool -add_rpath "@executable_path/../Frameworks" "$MACOS_DIR/PortHarbor"
 
 SPARKLE_FRAMEWORK=$(find "$BUILD_DIR" -path '*/release/Sparkle.framework' -type d -print -quit)
 : "${SPARKLE_FRAMEWORK:?Sparkle.framework was not produced by Swift Package Manager}"
 cp -R "$SPARKLE_FRAMEWORK" "$FRAMEWORKS_DIR/Sparkle.framework"
+
+# Fail packaging before signing if the executable cannot resolve the embedded
+# Sparkle framework from the standard macOS application bundle location.
+/usr/bin/otool -l "$MACOS_DIR/PortHarbor" | /usr/bin/grep -Fq "@executable_path/../Frameworks"
 
 /usr/libexec/PlistBuddy -c "Add :CFBundleDevelopmentRegion string en" "$CONTENTS_DIR/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string PortHarbor" "$CONTENTS_DIR/Info.plist"

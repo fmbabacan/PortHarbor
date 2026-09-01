@@ -63,6 +63,17 @@ jobs:
           test "$(/usr/libexec/PlistBuddy -c 'Print :SUEnableAutomaticChecks' "$app/Contents/Info.plist")" = "true"
           test -d "$app/Contents/Frameworks/Sparkle.framework"
           test -s "$app/Contents/Resources/Localizable.xcstrings"
+          otool -l "$app/Contents/MacOS/PortHarbor" | grep -Fq "@executable_path/../Frameworks"
+          "$app/Contents/MacOS/PortHarbor" > /tmp/portharbor-startup.log 2>&1 &
+          app_pid=$!
+          sleep 3
+          kill -0 "$app_pid"
+          kill "$app_pid"
+          wait "$app_pid" || true
+          if grep -Eq 'Library not loaded|dyld' /tmp/portharbor-startup.log; then
+            cat /tmp/portharbor-startup.log
+            exit 1
+          fi
       - name: Distribution script syntax
         run: |
           sh -n scripts/package-local-app.sh

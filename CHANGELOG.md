@@ -4,6 +4,13 @@ All notable changes to PortHarbor are documented here. The format follows Keep a
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-09-01
+
+### Fixed
+
+- Fixed packaged applications closing immediately at launch because the embedded Sparkle framework could not be resolved from the application bundle.
+- Added a packaged-application startup smoke test to CI to prevent invalid framework search paths from reaching future releases.
+
 ## [1.0.2] - 2026-09-01
 
 ### Fixed
@@ -37,7 +44,8 @@ All notable changes to PortHarbor are documented here. The format follows Keep a
 - Developer ID signed and Apple-notarized Apple Silicon and Intel builds.
 - Sparkle update metadata and Homebrew Cask distribution.
 
-[Unreleased]: https://github.com/fmbabacan/PortHarbor/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/fmbabacan/PortHarbor/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/fmbabacan/PortHarbor/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/fmbabacan/PortHarbor/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/fmbabacan/PortHarbor/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/fmbabacan/PortHarbor/releases/tag/v1.0.0
