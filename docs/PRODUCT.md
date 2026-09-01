@@ -1,5 +1,11 @@
 # PortHarbor v1 Product Specification
 
+## PortHarbor 1.1
+
+PortHarbor 1.1 treats the TCP port number as the stable local-service history identity. Bind address and IP-family changes are endpoint events, while PID and process start time distinguish individual service instances. Activity and the port inspector expose lifecycle, ownership, availability, health, and project-association changes without including command arguments, environment values, executable paths, or project paths in exported diagnostics.
+
+Users can keep a local watchlist of important ports and optionally receive local notifications for meaningful changes. Favorites and notification preferences remain on the Mac.
+
 ## Product promise
 
 **Meet every service running on your Mac.**
@@ -27,7 +33,7 @@ PortHarbor starts discovery immediately and teaches the product through a short 
 1. A quiet radar summary showing active services, network exposure, and recent changes.
 2. A dense service list grouped into Development, Background Services, and System.
 3. A right-side inspector preserving list context.
-4. A change-focused 24-hour timeline.
+4. A filterable Activity center with port history and configurable retention.
 
 The inspector presents service identity, port, health, exposure, project evidence, process ancestry, related timeline events, and available actions.
 
@@ -64,7 +70,7 @@ The menu bar presents development services, ports, and health, with search, Open
 - Never send SIGKILL automatically. It requires a separate explicit user action.
 - Report success only after verifying that the target exited.
 
-## Timeline
+## Activity
 
 Record only meaningful changes:
 
@@ -74,7 +80,7 @@ Record only meaningful changes:
 - Exposure widened or narrowed.
 - Project association changed materially.
 
-Coalesce repeated events, delete records after 24 hours, and allow immediate user clearing. Never persist environment values, file contents, or sensitive command arguments.
+Coalesce repeated events, support 24-hour, 7-day, and 30-day retention, and allow immediate user clearing. Never persist environment values, file contents, or sensitive command arguments.
 
 ## Failure behavior
 

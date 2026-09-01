@@ -62,6 +62,50 @@ private func timelineService(
     )
 
     #expect(events.contains { $0.kind == .portOwnerChanged })
+    let owner = events.first { $0.kind == .portOwnerChanged }
+    #expect(owner?.port == 3000)
+    #expect(owner?.context?.previousProcessID == 42)
+    #expect(owner?.context?.processID == 84)
+}
+
+@Test func activityGroupsBindAddressChangesUnderOnePort() {
+    let previous = timelineService(address: "127.0.0.1")
+    let current = timelineService(address: "0.0.0.0")
+    let events = TimelineDiff().events(
+        from: ServiceSnapshot(services: [previous]),
+        to: ServiceSnapshot(services: [current])
+    )
+    let endpointChange = events.first { $0.kind == .endpointChanged }
+    #expect(endpointChange?.portID == "tcp:3000")
+    #expect(endpointChange?.context?.endpointID == "tcp:ipv4:0.0.0.0:3000")
+}
+
+@Test func oldTimelineJSONDecodesAndInfersPortIdentity() throws {
+    let json = """
+    [{"id":"00000000-0000-0000-0000-000000000001","occurredAt":"1970-01-01T00:16:40Z","kind":"serviceStarted","serviceID":"42:ipv4:127.0.0.1:3000","summary":"Example started on port 3000"}]
+    """
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+    let events = try decoder.decode([TimelineEvent].self, from: Data(json.utf8))
+    #expect(events.first?.port == 3000)
+    #expect(events.first?.portID == "tcp:3000")
+}
+
+@Test func timelineStoreQueriesEventsByLogicalPort() async {
+    let base = Date(timeIntervalSince1970: 8_000)
+    let store = TimelineStore(persistence: InMemoryTimelinePersistence(), retention: 60)
+    _ = await store.ingest(ServiceSnapshot(capturedAt: base, services: []), now: base)
+    _ = await store.ingest(
+        ServiceSnapshot(capturedAt: base.addingTimeInterval(1), services: [timelineService(port: 3000)]),
+        now: base.addingTimeInterval(1)
+    )
+    _ = await store.ingest(
+        ServiceSnapshot(capturedAt: base.addingTimeInterval(2), services: [timelineService(port: 4000)]),
+        now: base.addingTimeInterval(2)
+    )
+    let events = await store.events(forPort: 3000, now: base.addingTimeInterval(2))
+    #expect(!events.isEmpty)
+    #expect(events.allSatisfy { $0.port == 3000 })
 }
 
 @Test func timelineStoreEnforcesRetentionAndSupportsClearing() async throws {

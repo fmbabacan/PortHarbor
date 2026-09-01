@@ -23,13 +23,18 @@ jobs:
           strings = catalog.get("strings", {})
           required = {
               "Services",
-              "Timeline",
+              "Activity",
               "Refresh",
               "Open in Browser",
               "Show in Finder",
               "Safe Stop",
               "Settings",
               "Quit PortHarbor",
+              "Recent Activity",
+              "View Full History",
+              "First seen",
+              "Running for",
+              "Restarts",
           }
           missing = sorted(required - strings.keys())
           if not strings or missing:

@@ -4,6 +4,29 @@ All notable changes to PortHarbor are documented here. The format follows Keep a
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-01
+
+### Added
+
+- Added logical TCP port history that remains continuous across bind-address, IP-family, PID, and process-instance changes.
+- Added structured, privacy-safe Activity event context with backward-compatible timeline persistence and port-based queries.
+- Added lifecycle details including first seen, running time, restart count, recent activity, and a 24-hour health and availability strip.
+- Added a filterable global Activity center with port, event-type, process, project, and free-text filtering.
+- Added Services summary controls and smart filters for development, unhealthy, exposed, unknown-project, and stoppable services.
+- Added persistent port favorites, a local watchlist, optional local notifications, and a focused menu-bar view.
+- Added project-match evidence, occupied-port diagnosis, and privacy-safe text and JSON diagnostic summaries.
+
+### Changed
+
+- Renamed Timeline to Activity throughout the primary navigation and settings experience.
+- Reworked the service inspector for narrow widths with compact icon-labelled actions and direct full-history navigation.
+- Improved empty-selection list alignment, light and dark appearance behavior, and accessibility labels for status and history controls.
+
+### Fixed
+
+- Preserved one logical port history when endpoint ownership or listener identity changes.
+- Prevented diagnostic summaries from including project paths, executable paths, command arguments, or environment data.
+
 ## [1.0.4] - 2026-09-01
 
 ### Fixed
@@ -51,7 +74,8 @@ All notable changes to PortHarbor are documented here. The format follows Keep a
 - Developer ID signed and Apple-notarized Apple Silicon and Intel builds.
 - Sparkle update metadata and Homebrew Cask distribution.
 
-[Unreleased]: https://github.com/fmbabacan/PortHarbor/compare/v1.0.4...HEAD
+[Unreleased]: https://github.com/fmbabacan/PortHarbor/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/fmbabacan/PortHarbor/compare/v1.0.4...v1.1.0
 [1.0.4]: https://github.com/fmbabacan/PortHarbor/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/fmbabacan/PortHarbor/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/fmbabacan/PortHarbor/compare/v1.0.1...v1.0.2

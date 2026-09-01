@@ -17,6 +17,7 @@
 6. Generate SHA-256 checksums and Sparkle EdDSA signatures.
 7. Publish the matching GitHub Release assets.
 8. Update appcast.xml and the Homebrew Cask with the exact version, URLs, signatures, and checksums.
+9. Download the published assets and independently verify SHA-256 values, bundle version, architecture, RPATH, Developer ID signature, notarization ticket, Gatekeeper acceptance, and isolated startup behavior.
 
 Never publish an ad-hoc signed local package. Public artifacts must be Developer ID signed, notarized, stapled, and accepted by Gatekeeper.
 

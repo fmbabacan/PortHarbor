@@ -1,5 +1,7 @@
 # PortHarbor v1 Performance Record
 
+The reproducible performance smoke test builds an isolated test bundle before starting its timer. The measured budget covers live listener discovery and test execution, excluding dependency resolution and compiler cache state.
+
 Measurements were collected on the development Apple Silicon Mac from the installed PortHarbor 1.0.0 build. They are release evidence for acceptance criterion 13 and should be repeated on representative Apple Silicon and Intel hardware before a later performance-sensitive release.
 
 ## Results
@@ -19,4 +21,4 @@ Measurements were collected on the development Apple Silicon Mac from the instal
 - The memory result is accepted as a documented v1 exception. It does not block functional testing or safe operation, but memory profiling and reduction remain follow-up work.
 - The live runtime test confirms that real listener discovery completes without being skipped.
 
-The performance smoke script measures a clean build and live discovery path. The runtime and UI smoke suites provide separate evidence that listener discovery and visible-window launch work on the development Mac.
+The performance smoke script measures live discovery after an isolated test build. The runtime and UI smoke suites provide separate evidence that listener discovery and visible-window launch work on the development Mac.

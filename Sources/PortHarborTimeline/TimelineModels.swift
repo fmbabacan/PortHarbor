@@ -8,6 +8,67 @@ public enum TimelineEventKind: String, Codable, Sendable {
     case healthChanged
     case exposureChanged
     case projectChanged
+    case endpointChanged
+}
+
+public enum ActivityRetention: String, Codable, CaseIterable, Sendable {
+    case oneDay
+    case sevenDays
+    case thirtyDays
+
+    public var duration: TimeInterval {
+        switch self {
+        case .oneDay: 24 * 60 * 60
+        case .sevenDays: 7 * 24 * 60 * 60
+        case .thirtyDays: 30 * 24 * 60 * 60
+        }
+    }
+}
+
+public struct ActivityContext: Codable, Equatable, Sendable {
+    public let port: UInt16?
+    public let portID: String?
+    public let endpointID: String?
+    public let serviceInstanceID: String?
+    public let address: String?
+    public let family: IPFamily?
+    public let processName: String?
+    public let processID: Int32?
+    public let previousProcessName: String?
+    public let previousProcessID: Int32?
+    public let projectName: String?
+    public let previousProjectName: String?
+    public let health: ServiceHealth?
+    public let previousHealth: ServiceHealth?
+    public let exposure: NetworkExposure?
+    public let previousExposure: NetworkExposure?
+
+    public init(
+        port: UInt16? = nil, portID: String? = nil, endpointID: String? = nil,
+        serviceInstanceID: String? = nil, address: String? = nil, family: IPFamily? = nil,
+        processName: String? = nil, processID: Int32? = nil,
+        previousProcessName: String? = nil, previousProcessID: Int32? = nil,
+        projectName: String? = nil, previousProjectName: String? = nil,
+        health: ServiceHealth? = nil, previousHealth: ServiceHealth? = nil,
+        exposure: NetworkExposure? = nil, previousExposure: NetworkExposure? = nil
+    ) {
+        self.port = port
+        self.portID = portID
+        self.endpointID = endpointID
+        self.serviceInstanceID = serviceInstanceID
+        self.address = address
+        self.family = family
+        self.processName = processName
+        self.processID = processID
+        self.previousProcessName = previousProcessName
+        self.previousProcessID = previousProcessID
+        self.projectName = projectName
+        self.previousProjectName = previousProjectName
+        self.health = health
+        self.previousHealth = previousHealth
+        self.exposure = exposure
+        self.previousExposure = previousExposure
+    }
 }
 
 public struct TimelineEvent: Identifiable, Codable, Equatable, Sendable {
@@ -16,19 +77,35 @@ public struct TimelineEvent: Identifiable, Codable, Equatable, Sendable {
     public let kind: TimelineEventKind
     public let serviceID: String
     public let summary: String
+    public let context: ActivityContext?
 
     public init(
         id: UUID = UUID(),
         occurredAt: Date = Date(),
         kind: TimelineEventKind,
         serviceID: String,
-        summary: String
+        summary: String,
+        context: ActivityContext? = nil
     ) {
         self.id = id
         self.occurredAt = occurredAt
         self.kind = kind
         self.serviceID = serviceID
         self.summary = summary
+        self.context = context
+    }
+
+    public var port: UInt16? {
+        context?.port ?? Self.legacyPort(from: serviceID)
+    }
+
+    public var portID: String? {
+        context?.portID ?? port.map { "tcp:\($0)" }
+    }
+
+    private static func legacyPort(from serviceID: String) -> UInt16? {
+        guard let component = serviceID.split(separator: ":").last else { return nil }
+        return UInt16(component)
     }
 }
 
@@ -82,7 +159,8 @@ public struct TimelineDiff: Sendable {
                         kind: .portOwnerChanged,
                         service: service,
                         occurredAt: eventDate,
-                        summary: "Port \(service.endpoint.port) ownership changed from \(displayName(for: oldService)) to \(displayName(for: service))"
+                        summary: "Port \(service.endpoint.port) ownership changed from \(displayName(for: oldService)) to \(displayName(for: service))",
+                        previous: oldService
                     )
                 )
                 continue
@@ -94,7 +172,8 @@ public struct TimelineDiff: Sendable {
                         kind: .healthChanged,
                         service: service,
                         occurredAt: eventDate,
-                        summary: "\(displayName(for: service)) health changed from \(oldService.health.rawValue) to \(service.health.rawValue)"
+                        summary: "\(displayName(for: service)) health changed from \(oldService.health.rawValue) to \(service.health.rawValue)",
+                        previous: oldService
                     )
                 )
             }
@@ -105,7 +184,8 @@ public struct TimelineDiff: Sendable {
                         kind: .exposureChanged,
                         service: service,
                         occurredAt: eventDate,
-                        summary: "\(displayName(for: service)) exposure changed from \(oldService.endpoint.exposure.rawValue) to \(service.endpoint.exposure.rawValue)"
+                        summary: "\(displayName(for: service)) exposure changed from \(oldService.endpoint.exposure.rawValue) to \(service.endpoint.exposure.rawValue)",
+                        previous: oldService
                     )
                 )
             }
@@ -116,9 +196,29 @@ public struct TimelineDiff: Sendable {
                         kind: .projectChanged,
                         service: service,
                         occurredAt: eventDate,
-                        summary: "\(displayName(for: service)) project association changed"
+                        summary: "\(displayName(for: service)) project association changed",
+                        previous: oldService
                     )
                 )
+            }
+        }
+
+        let previousByPort = Dictionary(grouping: previous.services, by: { $0.portID })
+        let currentByPort = Dictionary(grouping: current.services, by: { $0.portID })
+        for (portID, currentServices) in currentByPort {
+            guard let oldServices = previousByPort[portID] else { continue }
+            let oldEndpoints = Set(oldServices.map(\.endpointID))
+            let newEndpoints = Set(currentServices.map(\.endpointID))
+            guard oldEndpoints != newEndpoints, let service = currentServices.first else { continue }
+            let existingKinds = events.filter { $0.portID == portID }.map(\.kind)
+            if !existingKinds.contains(.portOwnerChanged) {
+                events.append(makeEvent(
+                    kind: .endpointChanged,
+                    service: service,
+                    occurredAt: eventDate,
+                    summary: "Port \(service.endpoint.port) endpoint changed",
+                    previous: oldServices.first
+                ))
             }
         }
 
@@ -146,13 +246,32 @@ public struct TimelineDiff: Sendable {
         kind: TimelineEventKind,
         service: DiscoveredService,
         occurredAt: Date,
-        summary: String
+        summary: String,
+        previous: DiscoveredService? = nil
     ) -> TimelineEvent {
         TimelineEvent(
             occurredAt: occurredAt,
             kind: kind,
             serviceID: service.id,
-            summary: summary
+            summary: summary,
+            context: ActivityContext(
+                port: service.endpoint.port,
+                portID: service.portID,
+                endpointID: service.endpointID,
+                serviceInstanceID: service.serviceInstanceID,
+                address: service.endpoint.address,
+                family: service.endpoint.family,
+                processName: service.process.name,
+                processID: service.process.pid,
+                previousProcessName: previous?.process.name,
+                previousProcessID: previous?.process.pid,
+                projectName: service.project?.name,
+                previousProjectName: previous?.project?.name,
+                health: service.health,
+                previousHealth: previous?.health,
+                exposure: service.endpoint.exposure,
+                previousExposure: previous?.endpoint.exposure
+            )
         )
     }
 }
@@ -308,6 +427,10 @@ public actor TimelineStore<Persistence: TimelinePersisting> {
 
     public func currentEvents(now: Date = Date()) -> [TimelineEvent] {
         retained(events, now: now).sorted { $0.occurredAt > $1.occurredAt }
+    }
+
+    public func events(forPort port: UInt16, now: Date = Date()) -> [TimelineEvent] {
+        currentEvents(now: now).filter { $0.port == port }
     }
 
     public func clear() async {

@@ -1,5 +1,13 @@
 # PortHarbor Architecture
 
+## Activity identity model
+
+- `tcp:<port>` is the logical history identity shared across listener changes.
+- Protocol, IP family, bind address, and port form the endpoint identity.
+- PID and process start time form the service-instance identity.
+- Activity events persist structured sanitized context while continuing to decode pre-1.1 timeline JSON.
+- Watchlist preferences use local user defaults, and notifications are generated only for watched logical ports.
+
 ## Structure
 
 PortHarbor is a modular Swift Package distributed as one native macOS application bundle.
@@ -7,7 +15,7 @@ PortHarbor is a modular Swift Package distributed as one native macOS applicatio
 - PortHarborCore: immutable models, classifications, and shared protocols.
 - PortHarborDiscovery: listener, process, project, exposure, and health discovery.
 - PortHarborSafety: pure target resolution, identity validation, and termination policy.
-- PortHarborTimeline: snapshot diffing, event coalescing, persistence, clearing, and 24-hour retention.
+- PortHarborTimeline: snapshot diffing, logical-port queries, event coalescing, backward-compatible persistence, clearing, and configurable retention.
 - PortHarborApp: SwiftUI main window, inspector, timeline, menu bar, onboarding guide, and settings.
 
 ## Data flow

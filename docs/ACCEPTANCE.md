@@ -11,7 +11,7 @@ PortHarbor v1 is complete only when all criteria below are satisfied.
 7. Safety tests prove that target resolution never crosses shells, terminal applications, editors, Docker, launchd, service managers, system processes, or PortHarbor's ancestry.
 8. It prevents signalling a stale or reused PID.
 9. It never sends SIGKILL without a separate explicit user action.
-10. The timeline stores meaningful events only, excludes sensitive data, and enforces 24-hour retention.
+10. Activity stores meaningful events only, excludes sensitive data, supports 24-hour, 7-day, and 30-day retention policies, and preserves backward-compatible persistence.
 11. The English interface is keyboard accessible and readable in light and dark appearances, with all strings in a String Catalog.
 12. Unit, integration, runtime smoke, and UI smoke test suites pass.
 13. Performance and energy measurements meet the documented budgets, or an accepted exception is documented before release.
@@ -19,3 +19,6 @@ PortHarbor v1 is complete only when all criteria below are satisfied.
 15. GitHub Release assets, checksums, Sparkle appcast, and Homebrew Cask reference the same verified version and artifacts.
 16. A testable intermediate build is installed on the development Mac for real-service evaluation.
 17. The public repository contains launch-ready README, screenshots, demo, license, architecture, security, contribution, and publishing documentation.
+18. Logical port identity, endpoint identity, and service-instance identity remain distinct and are covered by migration and query tests.
+19. Watchlist notifications are opt-in, local-only, and limited to meaningful changes for watched ports.
+20. Diagnostic exports omit project paths, executable paths, command arguments, and environment data.

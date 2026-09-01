@@ -6,6 +6,7 @@ import PortHarborSafety
 import PortHarborTimeline
 import Sparkle
 import SwiftUI
+import UserNotifications
 
 private func localized(_ key: String.LocalizationValue) -> String {
     String(localized: key, bundle: .main)
@@ -57,7 +58,7 @@ struct PortHarborApp: App {
 final class PortHarborModel {
     enum Page: String, CaseIterable, Identifiable {
         case services = "Services"
-        case timeline = "Timeline"
+        case timeline = "Activity"
 
         var id: Self { self }
     }
@@ -70,17 +71,35 @@ final class PortHarborModel {
     private let timelineStore: TimelineStore<JSONFileTimelinePersistence>
     private var observationTask: Task<Void, Never>?
     private var scanTask: Task<Void, Never>?
+    private let defaults = UserDefaults.standard
 
     var snapshot = ServiceSnapshot.empty
     var timeline: [TimelineEvent] = []
     var selectedServiceID: String?
     var selectedPage: Page = .services
+    var activityPortFilter: UInt16?
+    var serviceFilter: ServiceFilter = .all
+    var activitySearchText = ""
+    var activityKindFilter: TimelineEventKind?
+    var favoritePorts: Set<UInt16> = []
+    var notificationsEnabled = false
     var searchText = ""
     var isRefreshing = false
     var isStopping = false
     var refreshInterval: TimeInterval = 5
     var stopPrompt: StopPrompt?
     var stopNotice: StopNotice?
+
+    enum ServiceFilter: String, CaseIterable, Identifiable {
+        case all = "All"
+        case development = "Development"
+        case unhealthy = "Unhealthy"
+        case exposed = "Exposed"
+        case unknownProject = "Unknown Project"
+        case stoppable = "Stoppable"
+
+        var id: Self { self }
+    }
 
     enum StopPrompt: Identifiable {
         case graceful(TerminationPlan, String)
@@ -140,6 +159,13 @@ final class PortHarborModel {
                 checker: ProtocolAwareHealthChecker()
             )
         )
+        favoritePorts = Set(
+            (defaults.array(forKey: "favoritePorts") as? [Int] ?? [])
+                .compactMap(UInt16.init(exactly:))
+        )
+        notificationsEnabled = defaults.bool(
+            forKey: "watchlistNotificationsEnabled"
+        )
     }
 
     func start() {
@@ -183,16 +209,36 @@ final class PortHarborModel {
     }
 
     var filteredServices: [DiscoveredService] {
-        guard !searchText.isEmpty else { return snapshot.services }
+        let scoped = snapshot.services.filter { service in
+            switch serviceFilter {
+            case .all: true
+            case .development: service.category == .development
+            case .unhealthy: service.health == .unreachable || service.health == .starting
+            case .exposed: service.endpoint.exposure != .onlyThisMac
+            case .unknownProject: service.project == nil
+            case .stoppable:
+                if case .allowed = stopEligibility(for: service) {
+                    true
+                } else {
+                    false
+                }
+            }
+        }
+        guard !searchText.isEmpty else { return scoped }
         let query = searchText.localizedLowercase
 
-        return snapshot.services.filter { service in
+        return scoped.filter { service in
             service.process.name.localizedLowercase.contains(query)
                 || service.project?.name.localizedLowercase.contains(query) == true
                 || String(service.endpoint.port).contains(query)
                 || service.endpoint.address.localizedLowercase.contains(query)
         }
     }
+
+    var listeningCount: Int { snapshot.services.count }
+    var developmentCount: Int { snapshot.services.filter { $0.category == .development }.count }
+    var exposedCount: Int { snapshot.services.filter { $0.endpoint.exposure != .onlyThisMac }.count }
+    var unhealthyCount: Int { snapshot.services.filter { $0.health == .unreachable || $0.health == .starting }.count }
 
     var developmentServices: [DiscoveredService] {
         snapshot.services.filter { $0.category == .development }
@@ -201,6 +247,123 @@ final class PortHarborModel {
     var selectedService: DiscoveredService? {
         guard let selectedServiceID else { return nil }
         return snapshot.services.first { $0.id == selectedServiceID }
+    }
+
+    func activity(for service: DiscoveredService) -> [TimelineEvent] {
+        timeline.filter { $0.port == service.endpoint.port }
+    }
+
+    func firstSeen(for service: DiscoveredService) -> Date? {
+        let starts = activity(for: service)
+            .filter { $0.kind == .serviceStarted }
+            .map(\.occurredAt)
+        return (starts + [service.process.startTime].compactMap { $0 }).min()
+    }
+
+    func restartCount(for service: DiscoveredService) -> Int {
+        max(0, activity(for: service).filter { $0.kind == .serviceStarted }.count - 1)
+    }
+
+    func showFullHistory(for service: DiscoveredService) {
+        activityPortFilter = service.endpoint.port
+        selectedPage = .timeline
+    }
+
+    func isFavorite(_ service: DiscoveredService) -> Bool {
+        favoritePorts.contains(service.endpoint.port)
+    }
+
+    func toggleFavorite(_ service: DiscoveredService) {
+        let port = service.endpoint.port
+        if favoritePorts.contains(port) {
+            favoritePorts.remove(port)
+        } else {
+            favoritePorts.insert(port)
+        }
+        defaults.set(
+            favoritePorts.sorted().map(Int.init),
+            forKey: "favoritePorts"
+        )
+    }
+
+    func setNotificationsEnabled(_ enabled: Bool) {
+        notificationsEnabled = enabled
+        defaults.set(enabled, forKey: "watchlistNotificationsEnabled")
+        guard enabled else { return }
+        Task {
+            _ = try? await UNUserNotificationCenter.current()
+                .requestAuthorization(options: [.alert, .sound])
+        }
+    }
+
+    var favoriteServices: [DiscoveredService] {
+        snapshot.services.filter { favoritePorts.contains($0.endpoint.port) }
+    }
+
+    var searchedPortConflict: DiscoveredService? {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let port = UInt16(query) else { return nil }
+        return snapshot.services.first { $0.endpoint.port == port }
+    }
+
+    func copyDiagnosticSummary(
+        for service: DiscoveredService,
+        format: DiagnosticFormat
+    ) {
+        let summary = DiagnosticSummary(service: service)
+        let value: String
+        switch format {
+        case .text:
+            value = summary.text
+        case .json:
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            value = (try? encoder.encode(summary))
+                .flatMap { String(data: $0, encoding: .utf8) }
+                ?? summary.text
+        }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(value, forType: .string)
+    }
+
+    enum DiagnosticFormat {
+        case text
+        case json
+    }
+
+    struct DiagnosticSummary: Codable {
+        let port: UInt16
+        let address: String
+        let family: String
+        let process: String
+        let processID: Int32
+        let project: String?
+        let health: String
+        let exposure: String
+
+        init(service: DiscoveredService) {
+            port = service.endpoint.port
+            address = service.endpoint.address
+            family = service.endpoint.family.rawValue
+            process = service.process.name
+            processID = service.process.pid
+            project = service.project?.name
+            health = service.health.rawValue
+            exposure = service.endpoint.exposure.rawValue
+        }
+
+        var text: String {
+            [
+                "Port: \(port)",
+                "Address: \(address)",
+                "Family: \(family.uppercased())",
+                "Process: \(process)",
+                "PID: \(processID)",
+                "Project: \(project ?? "Unknown")",
+                "Health: \(health)",
+                "Exposure: \(exposure)"
+            ].joined(separator: "\n")
+        }
     }
 
     func openInBrowser(_ service: DiscoveredService) {
@@ -252,12 +415,30 @@ final class PortHarborModel {
 
     private func receive(_ snapshot: ServiceSnapshot) async {
         self.snapshot = snapshot
-        _ = await timelineStore.ingest(snapshot)
+        let additions = await timelineStore.ingest(snapshot)
         timeline = await timelineStore.currentEvents()
+        await notifyForWatchedChanges(additions)
 
         if let selectedServiceID,
            !snapshot.services.contains(where: { $0.id == selectedServiceID }) {
             self.selectedServiceID = nil
+        }
+    }
+
+    private func notifyForWatchedChanges(_ events: [TimelineEvent]) async {
+        guard notificationsEnabled else { return }
+        for event in events where event.port.map(favoritePorts.contains) == true {
+            let content = UNMutableNotificationContent()
+            content.title = event.port.map { "Port \($0) changed" }
+                ?? "Watched port changed"
+            content.body = event.summary
+            content.sound = .default
+            let request = UNNotificationRequest(
+                identifier: event.id.uuidString,
+                content: content,
+                trigger: nil
+            )
+            try? await UNUserNotificationCenter.current().add(request)
         }
     }
 
@@ -359,7 +540,7 @@ private struct MainWindow: View {
             List(selection: $model.selectedPage) {
                 Label("Services", systemImage: "dot.radiowaves.left.and.right")
                     .tag(PortHarborModel.Page.services)
-                Label("Timeline", systemImage: "clock.arrow.circlepath")
+                Label("Activity", systemImage: "clock.arrow.circlepath")
                     .tag(PortHarborModel.Page.timeline)
             }
             .navigationTitle("PortHarbor")
@@ -399,7 +580,10 @@ private struct ServicesPage: View {
     var body: some View {
         GeometryReader { geometry in
             HSplitView {
-                serviceList
+                VStack(spacing: 0) {
+                    serviceSummary
+                    serviceList
+                }
                     .frame(minWidth: 440)
                     .frame(height: geometry.size.height, alignment: .top)
 
@@ -442,6 +626,68 @@ private struct ServicesPage: View {
         }
     }
 
+    private var serviceSummary: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let conflict = model.searchedPortConflict {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Port \(conflict.endpoint.port) is occupied")
+                            .font(.callout.weight(.semibold))
+                        Text("\(conflict.process.name) · PID \(conflict.process.pid)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button("Inspect") {
+                        model.selectedServiceID = conflict.id
+                    }
+                }
+                .padding(9)
+                .background(
+                    .orange.opacity(0.1),
+                    in: RoundedRectangle(cornerRadius: 8)
+                )
+            }
+
+            HStack(spacing: 8) {
+                SummaryButton(
+                    title: "Listening",
+                    count: model.listeningCount,
+                    isSelected: model.serviceFilter == .all
+                ) { model.serviceFilter = .all }
+                SummaryButton(
+                    title: "Development",
+                    count: model.developmentCount,
+                    isSelected: model.serviceFilter == .development
+                ) { model.serviceFilter = .development }
+                SummaryButton(
+                    title: "Exposed",
+                    count: model.exposedCount,
+                    isSelected: model.serviceFilter == .exposed
+                ) { model.serviceFilter = .exposed }
+                SummaryButton(
+                    title: "Unhealthy",
+                    count: model.unhealthyCount,
+                    isSelected: model.serviceFilter == .unhealthy
+                ) { model.serviceFilter = .unhealthy }
+            }
+
+            Picker("Service filter", selection: $model.serviceFilter) {
+                ForEach(PortHarborModel.ServiceFilter.allCases) { filter in
+                    Text(filter.rawValue).tag(filter)
+                }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.bar)
+    }
+
     @ViewBuilder
     private var serviceList: some View {
         if model.snapshot == .empty && model.isRefreshing {
@@ -464,6 +710,17 @@ private struct ServicesPage: View {
                                 ServiceRow(service: service)
                                     .tag(service.id)
                                     .contextMenu {
+                                        Button(
+                                            model.isFavorite(service)
+                                                ? "Remove from Watchlist"
+                                                : "Add to Watchlist",
+                                            systemImage: model.isFavorite(service)
+                                                ? "star.slash"
+                                                : "star"
+                                        ) {
+                                            model.toggleFavorite(service)
+                                        }
+                                        Divider()
                                         Button("Open in Browser") {
                                             model.openInBrowser(service)
                                         }
@@ -485,7 +742,36 @@ private struct ServicesPage: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
+    }
+}
+
+private struct SummaryButton: View {
+    let title: String
+    let count: Int
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(count, format: .number)
+                    .font(.headline.monospacedDigit())
+                Text(title)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(8)
+            .background(
+                isSelected ? Color.accentColor.opacity(0.14) : Color.secondary.opacity(0.08),
+                in: RoundedRectangle(cornerRadius: 8)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(title), \(count)")
     }
 }
 
@@ -531,6 +817,7 @@ private struct ServiceInspector: View {
 
     var body: some View {
         if let service {
+            let events = model.activity(for: service)
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     VStack(alignment: .leading, spacing: 4) {
@@ -552,6 +839,69 @@ private struct ServiceInspector: View {
                             symbol: service.endpoint.exposure.symbol,
                             color: service.endpoint.exposure.color
                         )
+                    }
+
+                    Button(
+                        model.isFavorite(service)
+                            ? "Watching Port"
+                            : "Watch Port",
+                        systemImage: model.isFavorite(service)
+                            ? "star.fill"
+                            : "star"
+                    ) {
+                        model.toggleFavorite(service)
+                    }
+
+                    InspectorSection("Lifecycle") {
+                        if let firstSeen = model.firstSeen(for: service) {
+                            LabeledContent("First seen") {
+                                Text(firstSeen, style: .relative)
+                            }
+                        }
+                        if let started = service.process.startTime {
+                            LabeledContent("Running for") {
+                                Text(started, style: .relative)
+                            }
+                        }
+                        LabeledContent(
+                            "Restarts",
+                            value: String(model.restartCount(for: service))
+                        )
+                    }
+
+                    InspectorSection("Availability · Last 24 hours") {
+                        AvailabilityStrip(events: events, currentHealth: service.health)
+                    }
+
+                    InspectorSection("Recent Activity") {
+                        if events.isEmpty {
+                            Label(
+                                "No changes recorded for this port yet.",
+                                systemImage: "clock"
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        } else {
+                            ForEach(events.prefix(5)) { event in
+                                HStack(alignment: .top, spacing: 8) {
+                                    Image(systemName: event.kind.symbol)
+                                        .foregroundStyle(event.kind.color)
+                                        .frame(width: 18)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(event.summary)
+                                            .font(.caption)
+                                            .lineLimit(2)
+                                        Text(event.occurredAt, style: .relative)
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                        Button("View Full History") {
+                            model.showFullHistory(for: service)
+                        }
+                        .buttonStyle(.link)
                     }
 
                     InspectorSection("Endpoint") {
@@ -584,6 +934,24 @@ private struct ServiceInspector: View {
                                 .font(.caption.monospaced())
                                 .foregroundStyle(.secondary)
                                 .textSelection(.enabled)
+                            if !project.evidence.isEmpty {
+                                Text("Why this project matched")
+                                    .font(.caption.weight(.semibold))
+                                    .padding(.top, 2)
+                                ForEach(
+                                    Array(project.evidence.enumerated()),
+                                    id: \.offset
+                                ) { _, evidence in
+                                    HStack(alignment: .top, spacing: 6) {
+                                        Image(systemName: evidence.kind.symbol)
+                                            .foregroundStyle(.secondary)
+                                            .frame(width: 14)
+                                        Text(evidence.summary)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -598,18 +966,35 @@ private struct ServiceInspector: View {
                         }
                     }
 
-                    HStack {
-                        Button("Open in Browser") {
+                    HStack(spacing: 8) {
+                        Button("Open", systemImage: "safari") {
                             model.openInBrowser(service)
                         }
-                        Button("Show in Finder") {
+                        .help("Open in Browser")
+                        Button("Reveal", systemImage: "folder") {
                             model.showInFinder(service)
                         }
                         .disabled(service.project == nil)
-                        Button("Safe Stop", role: .destructive) {
+                        .help("Show in Finder")
+                        Button("Stop", systemImage: "stop.circle", role: .destructive) {
                             model.requestSafeStop(service)
                         }
                         .disabled(model.isStopping || !service.canStop)
+                        .help("Safe Stop")
+                        Menu("Copy", systemImage: "doc.on.doc") {
+                            Button("Diagnostic Summary") {
+                                model.copyDiagnosticSummary(
+                                    for: service,
+                                    format: .text
+                                )
+                            }
+                            Button("Diagnostic JSON") {
+                                model.copyDiagnosticSummary(
+                                    for: service,
+                                    format: .json
+                                )
+                            }
+                        }
                     }
 
                     if case let .denied(reason) = model.stopEligibility(for: service) {
@@ -629,6 +1014,34 @@ private struct ServiceInspector: View {
                 )
             )
         }
+    }
+}
+
+private struct AvailabilityStrip: View {
+    let events: [TimelineEvent]
+    let currentHealth: ServiceHealth
+
+    private var states: [ServiceHealth] {
+        let history = events
+            .filter { $0.kind == .healthChanged }
+            .reversed()
+            .compactMap { $0.context?.health }
+        let values = Array(history.suffix(11)) + [currentHealth]
+        return values.isEmpty ? [.unknown] : values
+    }
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(Array(states.enumerated()), id: \.offset) { _, health in
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(health.color.opacity(0.85))
+                    .frame(maxWidth: .infinity)
+            }
+        }
+        .frame(height: 10)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Port health history for the last 24 hours")
+        .accessibilityValue(currentHealth.title)
     }
 }
 
@@ -670,16 +1083,16 @@ private struct TimelinePage: View {
 
     var body: some View {
         Group {
-            if model.timeline.isEmpty {
+            if filteredEvents.isEmpty {
                 ContentUnavailableView(
-                    "No recent changes",
+                    model.activityPortFilter == nil ? "No recent changes" : "No changes for this port",
                     systemImage: "clock.arrow.circlepath",
                     description: Text(
                         "Meaningful service changes from the last 24 hours will appear here."
                     )
                 )
             } else {
-                List(model.timeline) { event in
+                List(filteredEvents) { event in
                     HStack(spacing: 12) {
                         Image(systemName: event.kind.symbol)
                             .foregroundStyle(event.kind.color)
@@ -695,8 +1108,25 @@ private struct TimelinePage: View {
                 }
             }
         }
-        .navigationTitle("Timeline")
+        .navigationTitle("Activity")
+        .searchable(text: $model.activitySearchText, prompt: "Port, process, project, or event")
         .toolbar {
+            ToolbarItem {
+                Picker("Event type", selection: $model.activityKindFilter) {
+                    Text("All Events").tag(TimelineEventKind?.none)
+                    ForEach(TimelineEventKind.allCases, id: \.self) { kind in
+                        Text(kind.title).tag(Optional(kind))
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+            if let port = model.activityPortFilter {
+                ToolbarItem {
+                    Button("Port \(port) · Clear Filter", systemImage: "line.3.horizontal.decrease.circle.fill") {
+                        model.activityPortFilter = nil
+                    }
+                }
+            }
             ToolbarItem {
                 Button(
                     "Clear Timeline",
@@ -707,6 +1137,19 @@ private struct TimelinePage: View {
                 }
                 .disabled(model.timeline.isEmpty)
             }
+        }
+    }
+
+    private var filteredEvents: [TimelineEvent] {
+        model.timeline.filter { event in
+            if let port = model.activityPortFilter, event.port != port { return false }
+            if let kind = model.activityKindFilter, event.kind != kind { return false }
+            guard !model.activitySearchText.isEmpty else { return true }
+            let query = model.activitySearchText.localizedLowercase
+            return event.summary.localizedLowercase.contains(query)
+                || event.context?.processName?.localizedLowercase.contains(query) == true
+                || event.context?.projectName?.localizedLowercase.contains(query) == true
+                || event.port.map(String.init)?.contains(query) == true
         }
     }
 }
@@ -733,7 +1176,7 @@ private struct MenuBarContent: View {
 
             Divider()
 
-            if model.developmentServices.isEmpty {
+            if focusedServices.isEmpty {
                 Text(
                     model.isRefreshing
                         ? "Scanning local services…"
@@ -742,7 +1185,7 @@ private struct MenuBarContent: View {
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, minHeight: 80)
             } else {
-                ForEach(model.developmentServices.prefix(8)) { service in
+                ForEach(focusedServices.prefix(8)) { service in
                     HStack {
                         Button {
                             model.openInBrowser(service)
@@ -792,6 +1235,15 @@ private struct MenuBarContent: View {
         .padding(14)
         .frame(width: 320)
     }
+
+    private var focusedServices: [DiscoveredService] {
+        let favorites = model.favoriteServices
+        if !favorites.isEmpty { return favorites }
+        let unhealthy = model.developmentServices.filter {
+            $0.health != .responding
+        }
+        return unhealthy.isEmpty ? model.developmentServices : unhealthy
+    }
 }
 
 private struct LiveProcessInspector: FreshProcessInspecting {
@@ -836,7 +1288,19 @@ private struct SettingsView: View {
                 Text("5 seconds").tag(TimeInterval(5))
                 Text("10 seconds").tag(TimeInterval(10))
             }
-            LabeledContent("Timeline retention", value: "24 hours")
+            LabeledContent("Activity retention", value: "24 hours")
+            Toggle(
+                "Watchlist notifications",
+                isOn: Binding(
+                    get: { model.notificationsEnabled },
+                    set: { model.setNotificationsEnabled($0) }
+                )
+            )
+            Text(
+                "Notifications are optional and only describe changes to ports in the local watchlist."
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
             LabeledContent("Data processing", value: "On this Mac")
         }
         .formStyle(.grouped)
@@ -859,6 +1323,17 @@ private extension ServiceCategory {
         case .development: "hammer"
         case .background: "gearshape.2"
         case .system: "macwindow"
+        }
+    }
+}
+
+private extension ProjectEvidence.Kind {
+    var symbol: String {
+        switch self {
+        case .workingDirectory: "folder"
+        case .command: "terminal"
+        case .ancestry: "point.3.connected.trianglepath.dotted"
+        case .projectMarker: "doc.badge.gearshape"
         }
     }
 }
@@ -919,6 +1394,23 @@ private extension NetworkExposure {
 }
 
 private extension TimelineEventKind {
+    static var allCases: [TimelineEventKind] {
+        [.serviceStarted, .serviceStopped, .portOwnerChanged, .healthChanged,
+         .exposureChanged, .projectChanged, .endpointChanged]
+    }
+
+    var title: String {
+        switch self {
+        case .serviceStarted: "Started"
+        case .serviceStopped: "Stopped"
+        case .portOwnerChanged: "Owner Changed"
+        case .healthChanged: "Health Changed"
+        case .exposureChanged: "Exposure Changed"
+        case .projectChanged: "Project Changed"
+        case .endpointChanged: "Endpoint Changed"
+        }
+    }
+
     var symbol: String {
         switch self {
         case .serviceStarted: "play.circle.fill"
@@ -927,6 +1419,7 @@ private extension TimelineEventKind {
         case .healthChanged: "heart.text.square"
         case .exposureChanged: "network"
         case .projectChanged: "folder"
+        case .endpointChanged: "point.3.connected.trianglepath.dotted"
         }
     }
 
@@ -934,7 +1427,8 @@ private extension TimelineEventKind {
         switch self {
         case .serviceStarted: .green
         case .serviceStopped: .red
-        case .portOwnerChanged, .healthChanged, .exposureChanged, .projectChanged:
+        case .portOwnerChanged, .healthChanged, .exposureChanged, .projectChanged,
+             .endpointChanged:
             .orange
         }
     }

@@ -53,6 +53,14 @@ public struct ListenerEndpoint: Codable, Hashable, Sendable {
     public var exposure: NetworkExposure {
         NetworkExposure.classify(address: address)
     }
+
+    public var portID: String {
+        "tcp:\(port)"
+    }
+
+    public var endpointID: String {
+        "tcp:\(family.rawValue):\(address.lowercased()):\(port)"
+    }
 }
 
 public struct ProcessIdentity: Codable, Hashable, Sendable {
@@ -146,6 +154,19 @@ public struct DiscoveredService: Identifiable, Codable, Hashable, Sendable {
 
     public var canStop: Bool {
         category != .system
+    }
+
+    public var portID: String {
+        endpoint.portID
+    }
+
+    public var endpointID: String {
+        endpoint.endpointID
+    }
+
+    public var serviceInstanceID: String {
+        let started = process.startTime.map { String($0.timeIntervalSince1970) } ?? "unknown"
+        return "\(process.pid):\(started)"
     }
 }
 

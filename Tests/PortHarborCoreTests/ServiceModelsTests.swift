@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import PortHarborCore
 
@@ -35,4 +36,18 @@ import Testing
     )
 
     #expect(project.confidence == 1)
+}
+@Test func serviceExposesDistinctPortEndpointAndInstanceIdentities() {
+    let endpoint = ListenerEndpoint(address: "127.0.0.1", port: 3000, family: .ipv4)
+    let service = DiscoveredService(
+        endpoint: endpoint,
+        process: ProcessIdentity(
+            pid: 42, parentPID: 1, processGroupID: 42, name: "node",
+            startTime: Date(timeIntervalSince1970: 100)
+        ),
+        category: .development
+    )
+    #expect(service.portID == "tcp:3000")
+    #expect(service.endpointID == "tcp:ipv4:127.0.0.1:3000")
+    #expect(service.serviceInstanceID == "42:100.0")
 }
