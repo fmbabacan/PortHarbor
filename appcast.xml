@@ -6,18 +6,18 @@
     <description>PortHarbor release updates</description>
     <language>en</language>
     <item>
-      <title>PortHarbor 1.0.0 for Apple Silicon</title>
-      <sparkle:version>1.0.0</sparkle:version>
-      <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
+      <title>PortHarbor 1.1.0 for Apple Silicon</title>
+      <sparkle:version>1.1.0</sparkle:version>
+      <sparkle:shortVersionString>1.1.0</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-      <enclosure url="https://github.com/fmbabacan/PortHarbor/releases/download/v1.0.0/PortHarbor-1.0.0-arm64.zip" length="1940058" type="application/octet-stream" sparkle:edSignature="TZqulv77/DY9zOKEn91YNlQ6rVNr2OTSHX+5R6HCgFK/ktTIWxDua/5v4UCZaeD7uKTgvuDjgALC0k6V5QlEAw==" />
+      <enclosure url="https://github.com/fmbabacan/PortHarbor/releases/download/v1.1.0/PortHarbor-1.1.0-arm64.zip" length="3130863" type="application/octet-stream" sparkle:edSignature="VWS7yzmpjqFhyd5wHQep/zkTbzqWTlAIccsj8f2x0VXGhbj0xi6YMoCEr48zPMyM+YKamA7uVwbChQUcJtrrCA==" />
     </item>
     <item>
-      <title>PortHarbor 1.0.0 for Intel</title>
-      <sparkle:version>1.0.0</sparkle:version>
-      <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
+      <title>PortHarbor 1.1.0 for Intel</title>
+      <sparkle:version>1.1.0</sparkle:version>
+      <sparkle:shortVersionString>1.1.0</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-      <enclosure url="https://github.com/fmbabacan/PortHarbor/releases/download/v1.0.0/PortHarbor-1.0.0-x86_64.zip" length="1963080" type="application/octet-stream" sparkle:edSignature="qk9Hi9cQQM/dxpBlINTcGnw435SH0OiVnkoNeh8W0UpW9t7e+i2Wx7oLezxddQ5+bONvTgne5/Fzev2N3pv0AQ==" />
+      <enclosure url="https://github.com/fmbabacan/PortHarbor/releases/download/v1.1.0/PortHarbor-1.1.0-x86_64.zip" length="3141687" type="application/octet-stream" sparkle:edSignature="uuZktuG+eEfnwIR4Q6MdGj+8y/KXLzXWl1DyjzX06PgMQYvuVSZSlL69WYC21VFplkhge7bBFuDtyxyE6DGeBw==" />
     </item>
   </channel>
 </rss>
