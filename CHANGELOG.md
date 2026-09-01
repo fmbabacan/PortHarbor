@@ -4,6 +4,13 @@ All notable changes to PortHarbor are documented here. The format follows Keep a
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-09-01
+
+### Fixed
+
+- Removed the packaged application's runtime dependency on Swift Package Manager's development-only `Bundle.module` fallback, preventing a main-thread `SIGTRAP` when localized service category titles are rendered.
+- Isolated the packaged-application startup test from the Swift build directory so missing application resources can no longer be masked by development-build fallback paths.
+
 ## [1.0.3] - 2026-09-01
 
 ### Fixed
@@ -44,7 +51,8 @@ All notable changes to PortHarbor are documented here. The format follows Keep a
 - Developer ID signed and Apple-notarized Apple Silicon and Intel builds.
 - Sparkle update metadata and Homebrew Cask distribution.
 
-[Unreleased]: https://github.com/fmbabacan/PortHarbor/compare/v1.0.3...HEAD
+[Unreleased]: https://github.com/fmbabacan/PortHarbor/compare/v1.0.4...HEAD
+[1.0.4]: https://github.com/fmbabacan/PortHarbor/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/fmbabacan/PortHarbor/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/fmbabacan/PortHarbor/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/fmbabacan/PortHarbor/compare/v1.0.0...v1.0.1

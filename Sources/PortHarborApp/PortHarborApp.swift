@@ -8,7 +8,7 @@ import Sparkle
 import SwiftUI
 
 private func localized(_ key: String.LocalizationValue) -> String {
-    String(localized: key, bundle: .module)
+    String(localized: key, bundle: .main)
 }
 
 @main

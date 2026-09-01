@@ -64,13 +64,16 @@ jobs:
           test -d "$app/Contents/Frameworks/Sparkle.framework"
           test -s "$app/Contents/Resources/Localizable.xcstrings"
           otool -l "$app/Contents/MacOS/PortHarbor" | grep -Fq "@executable_path/../Frameworks"
-          "$app/Contents/MacOS/PortHarbor" > /tmp/portharbor-startup.log 2>&1 &
+          isolated_root=$(mktemp -d /tmp/portharbor-ci-app.XXXXXX)
+          cp -R "$app" "$isolated_root/PortHarbor.app"
+          isolated_app="$isolated_root/PortHarbor.app"
+          "$isolated_app/Contents/MacOS/PortHarbor" > /tmp/portharbor-startup.log 2>&1 &
           app_pid=$!
-          sleep 3
+          sleep 8
           kill -0 "$app_pid"
           kill "$app_pid"
           wait "$app_pid" || true
-          if grep -Eq 'Library not loaded|dyld' /tmp/portharbor-startup.log; then
+          if grep -Eq 'Library not loaded|dyld|could not load resource bundle|SIGTRAP|Trace/BPT|fatal error' /tmp/portharbor-startup.log; then
             cat /tmp/portharbor-startup.log
             exit 1
           fi
